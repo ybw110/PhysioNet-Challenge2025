@@ -3,4 +3,6 @@ processed_data/
 models/
 model/
 __pycache__/
+predictions/
+.vscode
 

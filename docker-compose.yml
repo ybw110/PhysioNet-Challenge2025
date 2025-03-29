@@ -5,12 +5,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: physionet-challenge-2025
     volumes:
       - ./:/challenge
     working_dir: /challenge
     command: /bin/bash
     tty: true
     stdin_open: true
+    shm_size: '8g'
     deploy:
       resources:
         reservations:

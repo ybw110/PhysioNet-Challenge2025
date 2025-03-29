@@ -72,11 +72,11 @@ def load_model(model_folder, verbose):
     # 加载模型
     if os.path.exists(model_path):
         # 直接加载保存的模型字典
-        model_dict = torch.load(model_path, map_location=device)
+        model_dict = torch.load(model_path, map_location=device,weights_only=False)
         algorithm = model_dict['algorithm']
     elif os.path.exists(checkpoint_path):
         # 从检查点加载
-        checkpoint = torch.load(checkpoint_path, map_location=device)
+        checkpoint = torch.load(checkpoint_path, map_location=device,weights_only=False)
         algorithm = Diversify(config)
         algorithm.load_state_dict(checkpoint['model_state_dict'])
     else:

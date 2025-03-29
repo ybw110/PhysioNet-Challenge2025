@@ -15,8 +15,8 @@ class Config:
 
     domain_num = 3    # 潜在域的数量
     batch_size = 64
-    local_epochs = 2
-    max_rounds = 20
+    local_epochs = 1
+    max_rounds = 2
 
     lr = 5e-5             # 基础学习率
     lr_decay1 = 0.2          # 特征提取器的学习率衰减
