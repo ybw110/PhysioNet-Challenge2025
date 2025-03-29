@@ -129,87 +129,124 @@ class MultiSourceChagasECGDataset(Dataset):
         # 按数据源和标签分类样本
         source_pos_indices = defaultdict(list)
         source_neg_indices = defaultdict(list)
-
         for i in self.valid_indices:
             source = self.source_labels[i]
             label = self.labels[i]
-
             if label > 0:
                 source_pos_indices[source].append(i)
             else:
                 source_neg_indices[source].append(i)
 
-        # 保留所有SaMi-Trop样本
-        samitrop_samples = source_pos_indices['SaMi-Trop'] + source_neg_indices['SaMi-Trop']
-        samitrop_count = len(samitrop_samples)
-        print(f"SaMi-Trop样本总数: {samitrop_count}")
-        print(f"  - 阳性: {len(source_pos_indices['SaMi-Trop'])}")
-        print(f"  - 阴性: {len(source_neg_indices['SaMi-Trop'])}")
-
-        # PTB-XL抽样与SaMi-Trop数量相同
-        ptbxl_target = samitrop_count* 10
+        # 检查每个数据源是否存在
+        has_samitrop = 'SaMi-Trop' in source_pos_indices or 'SaMi-Trop' in source_neg_indices
+        has_ptbxl = 'PTB-XL' in source_pos_indices or 'PTB-XL' in source_neg_indices
+        has_code15 = 'CODE-15%' in source_pos_indices or 'CODE-15%' in source_neg_indices
+        
+        print(f"Available sources: SaMi-Trop: {has_samitrop}, PTB-XL: {has_ptbxl}, CODE-15%: {has_code15}")
+        
+        # 初始化各源的样本列表
+        samitrop_samples = []
         ptbxl_samples = []
-        if ptbxl_target > 0:
-            # 优先保留PTB-XL中的阳性样本(如果有)
-            ptbxl_pos = source_pos_indices['PTB-XL']
-            ptbxl_samples.extend(ptbxl_pos)
-
-            # 剩余配额用阴性样本填充
-            remaining = ptbxl_target - len(ptbxl_pos)
-            if remaining > 0 and source_neg_indices['PTB-XL']:
-                ptbxl_neg_samples = random.sample(
-                    source_neg_indices['PTB-XL'],
-                    min(remaining, len(source_neg_indices['PTB-XL']))
-                )
-                ptbxl_samples.extend(ptbxl_neg_samples)
-
-        print(f"PTB-XL抽样数: {len(ptbxl_samples)}")
-
-        # CODE-15%抽样为SaMi-Trop和PTB-XL总量的3倍
-        code15_target = (samitrop_count + len(ptbxl_samples)) * 5
         code15_samples = []
-
-        # 为CODE-15%保持阳性/阴性样本比例
-        code15_pos = source_pos_indices['CODE-15%']
-        code15_neg = source_neg_indices['CODE-15%']
-        print(f"CODE-15%原始数据: 阳性 {len(code15_pos)}, 阴性 {len(code15_neg)}, 总计 {len(code15_pos) + len(code15_neg)}")
-
-        # 优先保留所有阳性样本
-        code15_samples.extend(code15_pos)
-        print(f"已保留所有CODE-15%阳性样本: {len(code15_pos)}")
-        # 计算需要补充的阴性样本数量
-        neg_needed = code15_target - len(code15_pos)
-        print(f"需要补充阴性样本: {neg_needed}")
-
-        # 如果阴性样本数量足够，随机抽样补充
-        if len(code15_neg) > 0:
-            neg_to_add = min(neg_needed, len(code15_neg))
-            code15_neg_samples = random.sample(code15_neg, neg_to_add)
-            code15_samples.extend(code15_neg_samples)
-            print(f"已补充阴性样本: {len(code15_neg_samples)}")
-
-        # 如果阴性样本数量不够，可以考虑重复使用阳性样本(过采样)来达到目标数量
-        if len(code15_samples) < code15_target and len(code15_pos) > 0:
-            additional_needed = code15_target - len(code15_samples)
-            print(f"阴性样本不足，需要进一步补充: {additional_needed}")
-            # 使用有放回抽样(过采样)来补充阳性样本
-            additional_pos = random.choices(code15_pos, k=additional_needed)
-            code15_samples.extend(additional_pos)
-            print(f"已通过过采样补充阳性样本: {additional_needed}")
-
-        print(f"CODE-15%最终抽样数: {len(code15_samples)}")
-        print(f"  - 阳性: {sum(1 for i in code15_samples if self.labels[i] > 0)}")
-        print(f"  - 阴性: {sum(1 for i in code15_samples if self.labels[i] == 0)}")
-        print(f"  - 阳性比例: {sum(1 for i in code15_samples if self.labels[i] > 0) / len(code15_samples) * 100:.2f}%")
-
-        # 合并所有样本并随机打乱
+        
+        # 处理SaMi-Trop样本（如果存在）
+        if has_samitrop:
+            samitrop_samples = source_pos_indices['SaMi-Trop'] + source_neg_indices['SaMi-Trop']
+            samitrop_count = len(samitrop_samples)
+            print(f"SaMi-Trop样本总数: {samitrop_count}")
+            print(f"  - 阳性: {len(source_pos_indices['SaMi-Trop'])}")
+            print(f"  - 阴性: {len(source_neg_indices['SaMi-Trop'])}")
+        else:
+            samitrop_count = 0
+            print("SaMi-Trop数据源不存在")
+        
+        # 处理PTB-XL样本（如果存在）
+        if has_ptbxl:
+            # 如果有SaMi-Trop，则PTB-XL抽样与SaMi-Trop数量相关
+            # 如果没有SaMi-Trop，则PTB-XL保留所有样本
+            if has_samitrop:
+                ptbxl_target = samitrop_count * 10
+            else:
+                # 如果没有SaMi-Trop，保留所有PTB-XL样本
+                ptbxl_target = len(source_pos_indices['PTB-XL']) + len(source_neg_indices['PTB-XL'])
+            
+            if ptbxl_target > 0:
+                # 优先保留PTB-XL中的阳性样本(如果有)
+                ptbxl_pos = source_pos_indices['PTB-XL']
+                ptbxl_samples.extend(ptbxl_pos)
+                # 剩余配额用阴性样本填充
+                remaining = ptbxl_target - len(ptbxl_pos)
+                if remaining > 0 and source_neg_indices['PTB-XL']:
+                    ptbxl_neg_samples = random.sample(
+                        source_neg_indices['PTB-XL'],
+                        min(remaining, len(source_neg_indices['PTB-XL']))
+                    )
+                    ptbxl_samples.extend(ptbxl_neg_samples)
+            print(f"PTB-XL抽样数: {len(ptbxl_samples)}")
+        else:
+            print("PTB-XL数据源不存在")
+        
+        # 处理CODE-15%样本（如果存在）
+        if has_code15:
+            # 计算目标数量，基于现有的样本
+            existing_count = len(samitrop_samples) + len(ptbxl_samples)
+            if existing_count > 0:
+                code15_target = existing_count * 5
+            else:
+                # 如果没有其他数据源，保留所有CODE-15%样本
+                code15_target = len(source_pos_indices['CODE-15%']) + len(source_neg_indices['CODE-15%'])
+            
+            code15_pos = source_pos_indices['CODE-15%']
+            code15_neg = source_neg_indices['CODE-15%']
+            print(f"CODE-15%原始数据: 阳性 {len(code15_pos)}, 阴性 {len(code15_neg)}, 总计 {len(code15_pos) + len(code15_neg)}")
+            
+            # 优先保留所有阳性样本
+            code15_samples.extend(code15_pos)
+            print(f"已保留所有CODE-15%阳性样本: {len(code15_pos)}")
+            
+            # 计算需要补充的阴性样本数量
+            neg_needed = code15_target - len(code15_pos)
+            print(f"需要补充阴性样本: {neg_needed}")
+            
+            # 如果阴性样本数量足够，随机抽样补充
+            if len(code15_neg) > 0:
+                neg_to_add = min(neg_needed, len(code15_neg))
+                code15_neg_samples = random.sample(code15_neg, neg_to_add)
+                code15_samples.extend(code15_neg_samples)
+                print(f"已补充阴性样本: {len(code15_neg_samples)}")
+            
+            # 如果阴性样本数量不够，可以考虑重复使用阳性样本(过采样)来达到目标数量
+            if len(code15_samples) < code15_target and len(code15_pos) > 0:
+                additional_needed = code15_target - len(code15_samples)
+                print(f"阴性样本不足，需要进一步补充: {additional_needed}")
+                # 使用有放回抽样(过采样)来补充阳性样本
+                additional_pos = random.choices(code15_pos, k=additional_needed)
+                code15_samples.extend(additional_pos)
+                print(f"已通过过采样补充阳性样本: {additional_needed}")
+            
+            print(f"CODE-15%最终抽样数: {len(code15_samples)}")
+            if len(code15_samples) > 0:
+                print(f"  - 阳性: {sum(1 for i in code15_samples if self.labels[i] > 0)}")
+                print(f"  - 阴性: {sum(1 for i in code15_samples if self.labels[i] == 0)}")
+                print(f"  - 阳性比例: {sum(1 for i in code15_samples if self.labels[i] > 0) / len(code15_samples) * 100:.2f}%")
+        else:
+            print("CODE-15%数据源不存在")
+        
+        # 合并所有样本
         balanced_indices = samitrop_samples + ptbxl_samples + code15_samples
+        
+        # 如果没有样本被选中（极端情况），使用所有有效样本
+        if len(balanced_indices) == 0:
+            print("警告：没有样本被选中，使用所有有效样本")
+            balanced_indices = self.valid_indices.copy()
+        
+        # 随机打乱
         random.shuffle(balanced_indices)
-
+        
         print(f"平衡后总样本数: {len(balanced_indices)}")
         print(f"  - 阳性样本: {sum(1 for i in balanced_indices if self.labels[i] > 0)}")
         print(f"  - 阴性样本: {sum(1 for i in balanced_indices if self.labels[i] == 0)}")
-
+        
         return balanced_indices
 
     def get_pos_weight(self):
