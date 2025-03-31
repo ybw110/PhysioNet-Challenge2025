@@ -65,8 +65,8 @@ def load_model(model_folder, verbose):
 
         # 按时间戳排序，选择最新的
         latest_model_dir = sorted(model_dirs)[-1]
-        model_path = os.path.join(model_folder, latest_model_dir, 'diversify.pt')
-        checkpoint_path = os.path.join(model_folder, latest_model_dir, 'best_model.pth')
+        model_path = os.path.join(os.path.abspath(model_folder), latest_model_dir, 'diversify_model.pt')
+        checkpoint_path = os.path.join(os.path.abspath(model_folder), latest_model_dir, 'best_model.pth')
 
     device = torch.device(config.device if torch.cuda.is_available() else "cpu")
     # 加载模型

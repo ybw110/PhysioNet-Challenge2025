@@ -6,99 +6,153 @@ This repository contains a simple example that illustrates how to format a Pytho
 
 For this example, we implemented a random forest model with several simple features. (This simple example is **not** designed to perform well, so you should **not** use it as a baseline for your approach's performance.) You can try it by running the following commands on the Challenge training set. If you are using a relatively recent personal computer, then you should be able to run these commands from start to finish on a small subset (1000 records) of the training data in a few minutes or less.
 
-## How do I run these scripts?
+## Quick Start with Docker Compose
 
-First, you can download and create data for these scripts by following the [instructions](https://github.com/physionetchallenges/python-example-2025?tab=readme-ov-file#how-do-i-create-data-for-these-scripts) in the following section.
+Here's how to quickly get started with this project using **Docker Compose** to ensure code runs in an isolated environment with all dependencies. We highly recommend using this method for running this project:
+
+1. Make sure you have [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) installed.
+
+
+2. Download the training data and place it in the `databases` directory, unzip the corresponding compressed package, and ensure that the training data is in hdf5 format:
+
+        user@computer:~$ mkdir -p databases model predictions
+
+3. Build and start the Docker container:
+
+        user@computer:~$ docker compose up -d
+
+4. This will start a Docker container, enter the running container:
+
+        user@computer:~$ docker exec -it physionet-challenge-2025 bash
+
+    Execute the following command in the container to enter the code storage path `/challenge`
+
+        root@[...]:~$ cd /challenge
+
+5. Run the preprocessing scripts inside the container to generate processed data (results will be saved in the `processed_data` directory). Next, we will take `exams_part0.hdf5` as an example to demonstrate:
+
+        root@[...]:/challenge# python prepare_code15_data.py -i databases/exams_part0.hdf5 -d databases/exams.csv -l databases/code15_chagas_labels.csv -o processed_data/code15
+    Note: If you are using the `PTB-XL` or `SaMi-Trop` dataset, please change the ending `code15` to `PTB-XL` or `SaMi-Trop`. For details, please refer to [How do I create data for these scripts?](#how-do-i-create-data-for-these-scripts).
+
+6. Train the model and make predictions:
+
+    First, run the following command to train the model:
+
+        root@[...]:/challenge# python train_model.py -d processed_data -m model -v
+
+    Here, `-d processed_data` specifies the input folder with processed data, `-m model` specifies the output folder for the model, and `-v` enables verbose mode.
+
+    Next, run the following command to use the trained model to make predictions:
+
+        root@[...]:/challenge# python run_model.py -d processed_data -m model -o predictions -v
+
+    Here, `-d processed_data` specifies the input folder with processed data, `-m model` specifies the input folder for the model, `-o predictions` specifies the output folder for predictions, and `-v` enables verbose mode.
+
+    Finally, run the following command to evaluate the model's performance:
+
+        root@[...]:/challenge# python evaluate_model.py -d processed_data -o predictions -s scores.csv
+
+    Here, `-d processed_data` specifies the input folder with processed data, `-o predictions` specifies the input folder with predictions, and `-s scores.csv` specifies the output file for scores.
+
+7. Exit the container when finished:
+
+        root@[...]:/challenge# exit
+
+## How do I run these scripts manually?
+
+First, you can download and create data for these scripts by following the [instructions](#how-do-i-create-data-for-these-scripts) in the following section.
 
 Second, you can install the dependencies for these scripts by creating a Docker image (see below) or [virtual environment](https://docs.python.org/3/library/venv.html) and running
 
     pip install -r requirements.txt
 
+Third, you need to preprocess your data. For example, if you are using `CODE-15%` dataset:
+
+    python prepare_code15_data.py -i databases/exams_part0.hdf5 -d databases/exams.csv -l databases/code15_chagas_labels.csv -o processed_data/code15
+
+If you are using the `PTB-XL` or `SaMi-Trop` dataset, please change the script name and parameters accordingly. See [How do I create data for these scripts?](#how-do-i-create-data-for-these-scripts) for details.
+
 You can train your model by running
 
-    python train_model.py -d training_data -m model
+    python train_model.py -d processed_data -m model -v
 
 where
 
-- `training_data` (input; required) is a folder with the training data files, which must include the labels; and
+- `processed_data` (input; required) is a folder with the processed data files, which must include the labels; and
 - `model` (output; required) is a folder for saving your model.
 
 You can run your trained model by running
 
-    python run_model.py -d holdout_data -m model -o holdout_outputs
+    python run_model.py -d processed_data -m model -o predictions
 
 where
 
-- `holdout_data` (input; required) is a folder with the holdout data files, which will not necessarily include the labels;
+- `processed_data` (input; required) is a folder with the processed data files, which will not necessarily include the labels;
 - `model` (input; required) is a folder for loading your model; and
-- `holdout_outputs` (output; required) is a folder for saving your model outputs.
+- `predictions` (output; required) is a folder for saving your model outputs.
 
 The [Challenge website](https://physionetchallenges.org/2025/#data) provides a training database with a description of the contents and structure of the data files.
 
 You can evaluate your model by pulling or downloading the [evaluation code](https://github.com/physionetchallenges/evaluation-2025) and running
 
-    python evaluate_model.py -d holdout_data -o holdout_outputs -s scores.csv
+    python evaluate_model.py -d processed_data -o predictions -s scores.csv
 
 where
 
-- `holdout_data`(input; required) is a folder with labels for the holdout data files, which must include the labels;
-- `holdout_outputs` (input; required) is a folder containing files with your model's outputs for the data; and
+- `processed_data`(input; required) is a folder with labels for the processed data files, which must include the labels;
+- `predictions` (input; required) is a folder containing files with your model's outputs for the data; and
 - `scores.csv` (output; optional) is file with a collection of scores for your model.
 
-You can use the provided training set for the `training_data` and `holdout_data` files, but we will use different datasets for the validation and test sets, and we will not provide the labels to your code.
+You can use the provided training set for the `processed_data` files, but we will use different datasets for the validation and test sets, and we will not provide the labels to your code.
 
 ## How do I create data for these scripts?
 
-You can use the scripts in this repository to convert the [CODE-15% dataset](https://zenodo.org/records/4916206), the [SaMi-Trop dataset](https://zenodo.org/records/4905618), and the [PTB-XL dataset](https://physionet.org/content/ptb-xl/) to [WFDB](https://wfdb.io/) format.
+You can use the scripts in this repository to convert the [CODE-15% dataset](https://zenodo.org/records/4916206), the [SaMi-Trop dataset](https://zenodo.org/records/4905618), and the [PTB-XL dataset](https://physionet.org/content/ptb-xl/) to [WFDB](https://wfdb.io/) format. All raw data should be placed in the `databases` directory, and the processed data will be generated in the `processed_data` directory.
 
 Please see the [data](https://physionetchallenges.org/2025/#data) section of the website for more information about the Challenge data.
 
 #### CODE-15% dataset
 
-These instructions use `code15_input` as the path for the input data files and `code15_output` for the output data files, but you can replace them with the absolute or relative paths for the files on your machine.
+1. Download and unzip one or more of the `exam_part` files and the `exams.csv` file from the [CODE-15% dataset](https://zenodo.org/records/4916206) and place them in the `databases` directory.
 
-1. Download and unzip one or more of the `exam_part` files and the `exams.csv` file in the [CODE-15% dataset](https://zenodo.org/records/4916206).
-
-2. Download and unzip the Chagas labels, i.e., the [`code15_chagas_labels.csv`](https://physionetchallenges.org/2025/data/code15_chagas_labels.zip) file.
+2. Download and unzip the Chagas labels, i.e., the [`code15_chagas_labels.csv`](https://physionetchallenges.org/2025/data/code15_chagas_labels.zip) file and place it in the `databases` directory.
 
 3. Convert the CODE-15% dataset to WFDB format, with the available demographics information and Chagas labels in the WFDB header file, by running
 
         python prepare_code15_data.py \
-            -i code15_input/exams_part0.hdf5 code15_input/exams_part1.hdf5 \
-            -d code15_input/exams.csv \
-            -l code15_input/code15_chagas_labels.csv \
-            -o code15_output/exams_part0 code15_output/exams_part1
+            -i databases/exams_part0.hdf5 databases/exams_part1.hdf5 \
+            -d databases/exams.csv \
+            -l databases/code15_chagas_labels.csv \
+            -o processed_data/code15_part0 processed_data/code15_part1
 
 Each `exam_part` file in the [CODE-15% dataset](https://zenodo.org/records/4916206) contains approximately 20,000 ECG recordings. You can include more or fewer of these files to increase or decrease the number of ECG recordings, respectively. You may want to start with fewer ECG recordings to debug your code.
 
 #### SaMi-Trop dataset
 
-These instructions use `samitrop_input` as the path for the input data files and `samitrop_output` for the output data files, but you can replace them with the absolute or relative paths for the files on your machine.
+1. Download and unzip `exams.zip` file and the `exams.csv` file from the [SaMi-Trop dataset](https://zenodo.org/records/4905618) and place them in the `databases` directory.
 
-1. Download and unzip `exams.zip` file and the `exams.csv` file in the [SaMi-Trop dataset](https://zenodo.org/records/4905618).
-
-2. Download and unzip the Chagas labels, i.e., the [`samitrop_chagas_labels.csv`](https://physionetchallenges.org/2025/data/samitrop_chagas_labels.zip) file.
+2. Download and unzip the Chagas labels, i.e., the [`samitrop_chagas_labels.csv`](https://physionetchallenges.org/2025/data/samitrop_chagas_labels.zip) file and place it in the `databases` directory.
 
 3. Convert the SaMi-Trop dataset to WFDB format, with the available demographics information and Chagas labels in the WFDB header file, by running
 
         python prepare_samitrop_data.py \
-            -i samitrop_input/exams.hdf5 \
-            -d samitrop_input/exams.csv \
-            -l samitrop_input/samitrop_chagas_labels.csv \
-            -o samitrop_output
+            -i databases/exams.hdf5 \
+            -d databases/exams.csv \
+            -l databases/samitrop_chagas_labels.csv \
+            -o processed_data/samitrop
 
 #### PTB-XL dataset
 
-These instructions use `ptbxl_input` as the path for the input data files and `ptbxl_output` for the output data files, but you can replace them with the absolute or relative paths for the files on your machine. We are using the `records500` folder, which has a 500Hz sampling frequency, but you can also try the `records100` folder, which has a 100Hz sampling frequency.
+We are using the `records500` folder, which has a 500Hz sampling frequency, but you can also try the `records100` folder, which has a 100Hz sampling frequency.
 
-1. Download and, if necessary, unzip the [PTB-XL dataset](https://physionet.org/content/ptb-xl/).
+1. Download and, if necessary, unzip the [PTB-XL dataset](https://physionet.org/content/ptb-xl/) and place the files in the `databases/ptbxl` directory.
 
-2. Update the WFDB files with the available demographics information and Chagas labels  by running
+2. Update the WFDB files with the available demographics information and Chagas labels by running
 
         python prepare_ptbxl_data.py \
-            -i ptbxl_input/records500/ \
-            -d ptbxl_input/ptbxl_database.csv \
-            -o ptbxl_output
+            -i databases/ptbxl/records500/ \
+            -d databases/ptbxl/ptbxl_database.csv \
+            -o processed_data/ptbxl
 
 ## Which scripts I can edit?
 
@@ -122,55 +176,37 @@ To load and run your trained model, please edit the `load_model` and `run_model`
 
 ## How do I run these scripts in Docker?
 
-Docker and similar platforms allow you to containerize and package your code with specific dependencies so that your code can be reliably run in other computational environments.
+**We strongly recommend using Docker** to run your code, ensuring it can be reliably executed in any environment. Docker and similar platforms allow you to containerize and package your code with specific dependencies so that your code can be reliably run in other computational environments.
 
-To increase the likelihood that we can run your code, please [install](https://docs.docker.com/get-docker/) Docker, build a Docker image from your code, and run it on the training data. To quickly check your code for bugs, you may want to run it on a small subset of the training data, such as 1000 records.
+We provide a `docker-compose.yml` file to simplify using Docker. Please refer to the "Quick Start with Docker Compose" section above to get started quickly.
 
-If you have trouble running your code, then please try the follow steps to run the example code.
+If you want to manually build and run the Docker image, follow these steps:
 
-1. Create a folder `example` in your home directory with several subfolders.
+1. Create the necessary directories:
 
-        user@computer:~$ cd ~/
-        user@computer:~$ mkdir example
-        user@computer:~$ cd example
-        user@computer:~/example$ mkdir training_data holdout_data model holdout_outputs
+        user@computer:~$ mkdir -p databases processed_data model predictions
 
-2. Download the training data from the [Challenge website](https://physionetchallenges.org/2025/#data). Put some of the training data in `training_data` and `holdout_data`. You can use some of the training data to check your code (and you should perform cross-validation on the training data to evaluate your algorithm).
+2. Download and place the training data in the `databases` directory.
 
-3. Download or clone this repository in your terminal.
+3. Build the Docker image:
 
-        user@computer:~/example$ git clone https://github.com/physionetchallenges/python-example-2025.git
+        user@computer:~$ docker build -t physionet-challenge-2025 .
 
-4. Build a Docker image and run the example code in your terminal.
+4. Run the Docker container:
 
-        user@computer:~/example$ ls
-        holdout_data  holdout_outputs  model  python-example-2025  training_data
+        user@computer:~$ docker run -it \
+            -v $(pwd)/databases:/challenge/databases \
+            -v $(pwd)/processed_data:/challenge/processed_data \
+            -v $(pwd)/model:/challenge/model \
+            -v $(pwd)/predictions:/challenge/predictions \
+            physionet-challenge-2025 bash
 
-        user@computer:~/example$ cd python-example-2025/
+5. Execute the code inside the container:
 
-        user@computer:~/example/python-example-2025$ docker build -t image .
-
-        Sending build context to Docker daemon  [...]kB
-        [...]
-        Successfully tagged image:latest
-
-        user@computer:~/example/python-example-2025$ docker run -it -v ~/example/model:/challenge/model -v ~/example/holdout_data:/challenge/holdout_data -v ~/example/holdout_outputs:/challenge/holdout_outputs -v ~/example/training_data:/challenge/training_data image bash
-
-        root@[...]:/challenge# ls
-            Dockerfile             holdout_outputs        run_model.py
-            evaluate_model.py      LICENSE                training_data
-            helper_code.py         README.md      
-            holdout_data           requirements.txt
-
-        root@[...]:/challenge# python train_model.py -d training_data -m model -v
-
-        root@[...]:/challenge# python run_model.py -d holdout_data -m model -o holdout_outputs -v
-
-        root@[...]:/challenge# python evaluate_model.py -d holdout_data -o holdout_outputs
-        [...]
-
-        root@[...]:/challenge# exit
-        Exit
+        root@[...]:/challenge# python prepare_code15_data.py -i databases/exams_part0.hdf5 -d databases/exams.csv -l databases/code15_chagas_labels.csv -o processed_data/code15
+        root@[...]:/challenge# python train_model.py -d processed_data -m model -v
+        root@[...]:/challenge# python run_model.py -d processed_data -m model -o predictions -v
+        root@[...]:/challenge# python evaluate_model.py -d processed_data -o predictions  -s scores.csv
 
 ## What else do I need?
 
