@@ -20,6 +20,7 @@ config = Config()
 
 # 训练模型函数
 def train_model(data_folder, model_folder, verbose):
+    verbose=True
     if verbose:
         print('Finding the Challenge data...')
 
@@ -44,6 +45,7 @@ def train_model(data_folder, model_folder, verbose):
 
 # 加载训练好的模型
 def load_model(model_folder, verbose):
+    verbose=True
     if verbose:
         print('Loading model...')
 
